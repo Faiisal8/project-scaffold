@@ -1,0 +1,23 @@
+import dotenv from "dotenv";
+
+dotenv.config();
+
+export const config = {
+  port: parseInt(process.env.PORT || "8080", 10),
+  env: process.env.NODE_ENV || "development",
+  logLevel: process.env.LOG_LEVEL || "info",
+
+  http: {
+    readTimeout: parseInt(process.env.HTTP_READ_TIMEOUT || "5000", 10),
+    writeTimeout: parseInt(process.env.HTTP_WRITE_TIMEOUT || "10000", 10),
+    shutdownTimeout: parseInt(process.env.SHUTDOWN_TIMEOUT || "10000", 10),
+  },
+
+  sqlite: {
+    path: process.env.SQLITE_PATH || "./data/app.db",
+  },
+};
+
+if (!config.sqlite.path) {
+  throw new Error("SQLITE_PATH is required");
+}

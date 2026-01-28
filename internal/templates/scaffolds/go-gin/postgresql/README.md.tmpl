@@ -1,0 +1,31 @@
+# {{.ProjectName}} (Go + Gin + PostgreSQL)
+
+## Quickstart (local)
+
+```bash
+cp .env.example .env
+```
+
+```bash
+go mod tidy
+go run ./cmd
+```
+
+Health check:
+- `GET /health` → includes app status + DB reachability
+
+## Docker
+
+If you generated with Docker enabled:
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8080/health`.
+
+## Notes
+
+- Logs are JSON (Go `slog`) and include a `request_id` per request.
+- Server uses graceful shutdown (`SHUTDOWN_TIMEOUT`).
+

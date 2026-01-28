@@ -1,0 +1,34 @@
+import { getDb } from "../db/mongo.js";
+
+let startedAt = null;
+
+export function setStartTime(time) {
+  startedAt = time;
+}
+
+export function getUptime() {
+  if (!startedAt) {
+    return "0s";
+  }
+  const seconds = Math.floor((Date.now() - startedAt) / 1000);
+  return `${seconds}s`;
+}
+
+export async function checkHealth() {
+  const status = {
+    status: "ok",
+    db: "unknown",
+    uptime: getUptime(),
+  };
+
+  try {
+    const db = getDb();
+    await db.admin().ping();
+    status.db = "up";
+  } catch (error) {
+    status.db = "down";
+    status.db_error = error.message;
+  }
+
+  return status;
+}

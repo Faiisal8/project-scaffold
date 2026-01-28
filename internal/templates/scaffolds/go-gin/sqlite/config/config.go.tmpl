@@ -1,0 +1,36 @@
+package config
+
+import (
+	"errors"
+	"os"
+)
+
+type Config struct {
+	AppPort string
+
+	SQLitePath string
+}
+
+func Load() (Config, error) {
+	cfg := Config{
+		AppPort:    getenvDefault("APP_PORT", "8080"),
+		SQLitePath: getenvDefault("SQLITE_PATH", "./data/app.db"),
+	}
+
+	if cfg.AppPort == "" {
+		return Config{}, errors.New("APP_PORT is required")
+	}
+	if cfg.SQLitePath == "" {
+		return Config{}, errors.New("SQLITE_PATH is required")
+	}
+
+	return cfg, nil
+}
+
+func getenvDefault(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok {
+		return v
+	}
+	return def
+}
+

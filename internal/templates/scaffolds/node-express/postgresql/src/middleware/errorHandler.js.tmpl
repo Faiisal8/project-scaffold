@@ -1,0 +1,24 @@
+export function errorHandlerMiddleware(err, req, res, next) {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+
+  const log = {
+    level: "error",
+    type: "http_error",
+    method: req.method,
+    path: req.path,
+    status,
+    message,
+    request_id: req.id,
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+  };
+
+  console.error(JSON.stringify(log));
+
+  res.status(status).json({
+    error: {
+      message,
+      request_id: req.id,
+    },
+  });
+}

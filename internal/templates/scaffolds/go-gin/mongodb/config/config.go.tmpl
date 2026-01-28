@@ -1,0 +1,35 @@
+package config
+
+import (
+	"errors"
+	"os"
+)
+
+type Config struct {
+	AppPort string
+
+	MongoURL string
+}
+
+func Load() (Config, error) {
+	cfg := Config{
+		AppPort:  getenvDefault("APP_PORT", "8080"),
+		MongoURL: getenvDefault("MONGO_URL", "mongodb://localhost:27017/{{.ProjectName}}"),
+	}
+
+	if cfg.AppPort == "" {
+		return Config{}, errors.New("APP_PORT is required")
+	}
+	if cfg.MongoURL == "" {
+		return Config{}, errors.New("MONGO_URL is required")
+	}
+	return cfg, nil
+}
+
+func getenvDefault(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok {
+		return v
+	}
+	return def
+}
+

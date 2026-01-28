@@ -1,0 +1,6 @@
+project-scaffold.exe
+*.exe
+*.log
+bin/
+dist/
+

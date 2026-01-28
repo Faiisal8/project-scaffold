@@ -1,0 +1,22 @@
+package handlers
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"{{.ProjectName}}/internal/services"
+)
+
+type HealthHandler struct {
+	svc *services.HealthService
+}
+
+func NewHealthHandler(svc *services.HealthService) *HealthHandler {
+	return &HealthHandler{svc: svc}
+}
+
+func (h *HealthHandler) Get(c *gin.Context) {
+	c.JSON(http.StatusOK, h.svc.Status(c.Request.Context()))
+}
+

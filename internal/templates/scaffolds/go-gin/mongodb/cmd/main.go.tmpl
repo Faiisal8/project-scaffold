@@ -1,0 +1,33 @@
+package main
+
+import (
+	"log"
+
+	"github.com/gin-gonic/gin"
+
+	"{{.ProjectName}}/config"
+	"{{.ProjectName}}/internal/handlers"
+	"{{.ProjectName}}/internal/routes"
+	"{{.ProjectName}}/internal/services"
+)
+
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("load config: %v", err)
+	}
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+
+	_ = cfg // placeholder: wire DB later
+
+	healthSvc := services.NewHealthService()
+	healthHandler := handlers.NewHealthHandler(healthSvc)
+	routes.Register(router, healthHandler)
+
+	if err := router.Run(":" + cfg.AppPort); err != nil {
+		log.Fatalf("server error: %v", err)
+	}
+}
+

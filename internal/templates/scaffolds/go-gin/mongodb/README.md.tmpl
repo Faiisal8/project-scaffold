@@ -1,0 +1,20 @@
+# {{.ProjectName}} (Go + Gin + MongoDB)
+
+## Quickstart (local)
+
+```bash
+cp .env.example .env
+go mod tidy
+go run ./cmd
+```
+
+Health check: `GET /health`
+
+## Docker
+
+If generated with Docker enabled:
+
+```bash
+docker compose up --build
+```
+

@@ -1,0 +1,19 @@
+export function requestLoggerMiddleware(req, res, next) {
+  const start = Date.now();
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    const log = {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration_ms: duration,
+      client_ip: req.ip || req.socket.remoteAddress,
+      request_id: req.id,
+    };
+
+    console.log(JSON.stringify({ ...log, level: "info", type: "http_request" }));
+  });
+
+  next();
+}

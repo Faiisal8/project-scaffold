@@ -1,0 +1,42 @@
+import Database from "better-sqlite3";
+import { config } from "../config/config.js";
+import { mkdir } from "fs/promises";
+import { dirname } from "path";
+
+let db = null;
+
+export async function connect() {
+  if (db) {
+    return db;
+  }
+
+  try {
+    // Ensure directory exists
+    const dbDir = dirname(config.sqlite.path);
+    await mkdir(dbDir, { recursive: true });
+
+    db = new Database(config.sqlite.path);
+    db.pragma("journal_mode = WAL");
+
+    console.log("SQLite connected", { path: config.sqlite.path });
+    return db;
+  } catch (error) {
+    console.error("SQLite connection failed:", error);
+    throw error;
+  }
+}
+
+export function disconnect() {
+  if (db) {
+    db.close();
+    db = null;
+    console.log("SQLite disconnected");
+  }
+}
+
+export function getDb() {
+  if (!db) {
+    throw new Error("Database not connected. Call connect() first.");
+  }
+  return db;
+}

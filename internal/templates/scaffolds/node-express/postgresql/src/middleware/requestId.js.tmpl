@@ -1,0 +1,12 @@
+import { randomBytes } from "crypto";
+
+const REQUEST_ID_HEADER = "x-request-id";
+
+export function requestIdMiddleware(req, res, next) {
+  const existingId = req.headers[REQUEST_ID_HEADER];
+  const requestId = existingId || randomBytes(16).toString("hex");
+
+  req.id = requestId;
+  res.setHeader(REQUEST_ID_HEADER, requestId);
+  next();
+}

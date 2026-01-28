@@ -1,0 +1,43 @@
+# {{.ProjectName}} (Node.js + Express + MongoDB)
+
+## Quickstart (local)
+
+```bash
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Health check:
+- `GET /health` → includes app status + DB reachability
+
+## Docker
+
+If generated with Docker enabled:
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8080/health`.
+
+## Project Structure
+
+```
+src/
+  config/       # Configuration management
+  db/          # Database connection layer
+  middleware/  # Express middleware (request ID, logging, error handling)
+  routes/      # Route handlers
+  services/    # Business logic
+  server.js    # Application entry point
+```
+
+## Features
+
+- **Structured JSON logging** with request ID per request
+- **Graceful shutdown** with configurable timeouts
+- **MongoDB connection pool** with health checks
+- **Error handling middleware** with structured error responses
+- **Request logging** with duration, status, and client IP
+

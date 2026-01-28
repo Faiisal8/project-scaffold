@@ -1,0 +1,43 @@
+package services
+
+import (
+	"context"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type HealthService struct {
+	startedAt time.Time
+	db        *pgxpool.Pool
+}
+
+type HealthStatus struct {
+	Status string `json:"status"`
+	DB     string `json:"db"`
+	Uptime string `json:"uptime"`
+}
+
+func NewHealthService(startedAt time.Time, db *pgxpool.Pool) *HealthService {
+	return &HealthService{startedAt: startedAt, db: db}
+}
+
+func (s *HealthService) Status(ctx context.Context) HealthStatus {
+	dbStatus := "unknown"
+	if s.db != nil {
+		pingCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+		defer cancel()
+		if err := s.db.Ping(pingCtx); err != nil {
+			dbStatus = "down"
+		} else {
+			dbStatus = "up"
+		}
+	}
+
+	return HealthStatus{
+		Status: "ok",
+		DB:     dbStatus,
+		Uptime: time.Since(s.startedAt).Round(time.Second).String(),
+	}
+}
+
