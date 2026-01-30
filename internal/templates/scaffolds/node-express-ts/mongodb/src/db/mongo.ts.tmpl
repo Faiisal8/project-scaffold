@@ -1,0 +1,38 @@
+import { MongoClient, Db } from "mongodb";
+import { config } from "../config/config.js";
+
+let client: MongoClient | null = null;
+let db: Db | null = null;
+
+export async function connect(): Promise<Db> {
+  if (client) {
+    return db!;
+  }
+
+  client = new MongoClient(config.mongo.url, {
+    maxPoolSize: 10,
+    minPoolSize: 1,
+  });
+
+  await client.connect();
+  db = client.db(config.mongo.dbName);
+
+  console.log("MongoDB connected", { db: config.mongo.dbName });
+  return db;
+}
+
+export async function disconnect(): Promise<void> {
+  if (client) {
+    await client.close();
+    client = null;
+    db = null;
+    console.log("MongoDB disconnected");
+  }
+}
+
+export function getDb(): Db {
+  if (!db) {
+    throw new Error("Database not connected. Call connect() first.");
+  }
+  return db;
+}

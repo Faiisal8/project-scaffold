@@ -1,0 +1,17 @@
+import { Request, Response, NextFunction } from "express";
+
+/** JWT auth middleware skeleton. Set JWT_SECRET in env. Replace with your JWT library. */
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    res.status(500).json({ error: "JWT not configured" });
+    return;
+  }
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "missing or invalid authorization" });
+    return;
+  }
+  const token = auth.slice(7);
+  next();
+}

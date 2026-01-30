@@ -14,13 +14,16 @@ import (
 	"github.com/spf13/cobra"
 
 	"project-scaffold/internal/generator"
+	"project-scaffold/internal/plugin"
 )
 
 var (
-	flagStackKey string
-	flagDBKey    string
-	flagDocker   bool
-	flagNoDocker bool
+	flagStackKey   string
+	flagDBKey      string
+	flagNodeVariant string
+	flagDocker     bool
+	flagNoDocker   bool
+	flagPlugins    string
 )
 
 var initCmd = &cobra.Command{
@@ -51,9 +54,9 @@ var initCmd = &cobra.Command{
 
 		stack := generator.Stack("")
 		db := generator.Database("")
+		nodeVariant := ""
 		useDocker := false
 
-		// Flags override prompts (useful for CI / non-interactive shells).
 		if strings.TrimSpace(flagStackKey) != "" {
 			s, err := generator.ParseStackKey(flagStackKey)
 			if err != nil {
@@ -68,14 +71,25 @@ var initCmd = &cobra.Command{
 			}
 			db = d
 		}
+		if strings.TrimSpace(flagNodeVariant) != "" {
+			nodeVariant = strings.TrimSpace(strings.ToLower(flagNodeVariant))
+			if nodeVariant != "js" && nodeVariant != "ts" {
+				nodeVariant = "js"
+			}
+		}
 		if flagDocker {
 			useDocker = true
 		} else if flagNoDocker {
 			useDocker = false
 		}
 
-		// Prompt for any missing values.
-		qs := make([]*survey.Question, 0, 3)
+		stdinIsTTY := false
+		if fi, err := os.Stdin.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) != 0 {
+			stdinIsTTY = true
+		}
+		nonInteractive := os.Getenv("SCAFFOLD_NON_INTERACTIVE") == "1" || os.Getenv("CI") == "true"
+
+		qs := make([]*survey.Question, 0, 4)
 		if stack == "" {
 			qs = append(qs, &survey.Question{
 				Name: "stack",
@@ -103,6 +117,16 @@ var initCmd = &cobra.Command{
 				},
 			})
 		}
+		if stack == generator.StackNodeExpress && nodeVariant == "" {
+			qs = append(qs, &survey.Question{
+				Name: "nodeVariant",
+				Prompt: &survey.Select{
+					Message: "Node.js language:",
+					Options: []string{"JavaScript", "TypeScript"},
+					Default: "JavaScript",
+				},
+			})
+		}
 		if !flagDocker && !flagNoDocker {
 			qs = append(qs, &survey.Question{
 				Name: "docker",
@@ -113,7 +137,8 @@ var initCmd = &cobra.Command{
 			})
 		}
 
-		if len(qs) > 0 {
+		didPrompt := len(qs) > 0
+		if didPrompt {
 			answers := struct {
 				Stack  string `survey:"stack"`
 				DB     string `survey:"db"`
@@ -132,6 +157,57 @@ var initCmd = &cobra.Command{
 				useDocker = answers.Docker
 			}
 		}
+		if stack == generator.StackNodeExpress && nodeVariant == "" && stdinIsTTY && !nonInteractive {
+			nodeVariantAnswers := struct {
+				NodeVariant string `survey:"nodeVariant"`
+			}{}
+			if err := survey.Ask([]*survey.Question{{
+				Name: "nodeVariant",
+				Prompt: &survey.Select{
+					Message: "Node.js language:",
+					Options: []string{"JavaScript", "TypeScript"},
+					Default: "JavaScript",
+				},
+			}}, &nodeVariantAnswers); err != nil {
+				return err
+			}
+			if nodeVariantAnswers.NodeVariant == "TypeScript" {
+				nodeVariant = "ts"
+			} else {
+				nodeVariant = "js"
+			}
+		}
+		if stack == generator.StackNodeExpress && nodeVariant == "" {
+			nodeVariant = "js"
+		}
+
+		pluginsSelected := parsePluginsFlag(flagPlugins)
+		allFromFlags := stack != "" && db != "" && (flagDocker || flagNoDocker)
+		if len(pluginsSelected) == 0 && didPrompt && !allFromFlags && stdinIsTTY && !nonInteractive {
+			stackKey, err := generator.StackKey(stack)
+			if err != nil {
+				return err
+			}
+			effectiveStack := generator.EffectiveStackKey(stack, stackKey, nodeVariant)
+			compatible := plugin.CompatibleWith(effectiveStack)
+			if len(compatible) > 0 {
+				qsPlugins := []*survey.Question{{
+					Name: "plugins",
+					Prompt: &survey.MultiSelect{
+						Message: "Choose plugins (optional):",
+						Options: compatible,
+						Default: nil,
+					},
+				}}
+				answersPlugins := struct {
+					Plugins []string `survey:"plugins"`
+				}{}
+				if err := survey.Ask(qsPlugins, &answersPlugins); err != nil {
+					return err
+				}
+				pluginsSelected = answersPlugins.Plugins
+			}
+		}
 
 		targetDir := filepath.Join(".", projectName)
 		if _, err := os.Stat(targetDir); err == nil {
@@ -147,9 +223,10 @@ var initCmd = &cobra.Command{
 			Stack:       stack,
 			Database:    db,
 			UseDocker:   useDocker,
+			Plugins:     pluginsSelected,
+			NodeVariant: nodeVariant,
 		}
 
-		// Step-based progress output.
 		yellow := color.New(color.FgYellow)
 		green := color.New(color.FgGreen)
 		red := color.New(color.FgRed)
@@ -164,7 +241,7 @@ var initCmd = &cobra.Command{
 
 		err := generator.Generate(targetDir, opts)
 		spin.Stop()
-		fmt.Fprintln(cmd.OutOrStdout()) // move to next line after spinner
+		fmt.Fprintln(cmd.OutOrStdout())
 
 		if err != nil {
 			red.Fprintln(cmd.ErrOrStderr(), friendlyInitError(err))
@@ -208,10 +285,26 @@ func printNextSteps(cmd *cobra.Command, opts generator.Options) {
 	}
 }
 
+func parsePluginsFlag(s string) []string {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 func init() {
 	initCmd.Flags().StringVar(&flagStackKey, "stack", "", "Stack key: go-gin | node-express (optional)")
 	initCmd.Flags().StringVar(&flagDBKey, "db", "", "Database key: postgresql | mongodb | sqlite (optional)")
+	initCmd.Flags().StringVar(&flagNodeVariant, "node-variant", "", "Node.js language: js | ts (optional, only for node-express)")
 	initCmd.Flags().BoolVar(&flagDocker, "docker", false, "Generate Dockerfile and docker-compose.yml (skip prompt)")
 	initCmd.Flags().BoolVar(&flagNoDocker, "no-docker", false, "Do not generate Docker files (skip prompt)")
+	initCmd.Flags().StringVar(&flagPlugins, "plugins", "", "Comma-separated plugin names, e.g. auth (optional)")
 }
 

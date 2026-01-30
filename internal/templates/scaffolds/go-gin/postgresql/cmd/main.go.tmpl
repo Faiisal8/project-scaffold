@@ -47,6 +47,7 @@ func main() {
 	healthSvc := services.NewHealthService(time.Now(), dbPool)
 	healthHandler := handlers.NewHealthHandler(healthSvc)
 	routes.Register(router, healthHandler)
+	// scaffold:auth
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.AppPort,

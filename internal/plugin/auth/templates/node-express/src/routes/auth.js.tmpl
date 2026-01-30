@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { authMiddleware } from "../middleware/auth.js";
+
+const router = Router();
+
+router.post("/login", (req, res) => {
+  res.json({ message: "login stub" });
+});
+
+router.get("/me", authMiddleware, (req, res) => {
+  res.json({ message: "me stub" });
+});
+
+export default router;

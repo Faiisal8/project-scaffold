@@ -25,6 +25,7 @@ func main() {
 	healthSvc := services.NewHealthService()
 	healthHandler := handlers.NewHealthHandler(healthSvc)
 	routes.Register(router, healthHandler)
+	// scaffold:auth
 
 	if err := router.Run(":" + cfg.AppPort); err != nil {
 		log.Fatalf("server error: %v", err)

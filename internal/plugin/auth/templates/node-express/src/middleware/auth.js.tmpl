@@ -1,0 +1,13 @@
+/** JWT auth middleware skeleton. Set JWT_SECRET in env. Replace with your JWT library. */
+export function authMiddleware(req, res, next) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return res.status(500).json({ error: "JWT not configured" });
+  }
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "missing or invalid authorization" });
+  }
+  const token = auth.slice(7);
+  next();
+}

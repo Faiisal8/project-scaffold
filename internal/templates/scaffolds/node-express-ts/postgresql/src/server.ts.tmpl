@@ -1,0 +1,77 @@
+import express from "express";
+import { config } from "./config/config.js";
+import { connect, disconnect } from "./db/postgres.js";
+import { requestIdMiddleware } from "./middleware/requestId.js";
+import { requestLoggerMiddleware } from "./middleware/requestLogger.js";
+import { errorHandlerMiddleware } from "./middleware/errorHandler.js";
+import healthRouter from "./routes/health.js";
+import { setStartTime } from "./services/healthService.js";
+// scaffold:auth-import
+
+const app = express();
+const startedAt = Date.now();
+setStartTime(startedAt);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(requestIdMiddleware);
+app.use(requestLoggerMiddleware);
+
+app.use("/", healthRouter);
+// scaffold:auth-routes
+
+app.use(errorHandlerMiddleware);
+
+let server: ReturnType<typeof app.listen> | null = null;
+
+async function start(): Promise<void> {
+  try {
+    connect();
+
+    server = app.listen(config.port, () => {
+      console.log(
+        JSON.stringify({
+          level: "info",
+          type: "server_start",
+          message: "HTTP server started",
+          port: config.port,
+          env: config.env,
+        })
+      );
+    });
+
+    server.timeout = config.http.readTimeout;
+    server.keepAliveTimeout = config.http.writeTimeout;
+  } catch (error) {
+    console.error(JSON.stringify({ level: "error", type: "startup_error", error: (error as Error).message }));
+    process.exit(1);
+  }
+}
+
+async function shutdown(signal: string): Promise<void> {
+  console.log(JSON.stringify({ level: "info", type: "shutdown", signal }));
+
+  if (server) {
+    return new Promise((resolve) => {
+      server!.close(async () => {
+        await disconnect();
+        resolve();
+      });
+
+      setTimeout(() => {
+        console.error(JSON.stringify({ level: "error", type: "shutdown_timeout" }));
+        process.exit(1);
+      }, config.http.shutdownTimeout);
+    });
+  }
+
+  await disconnect();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
+start().catch((error) => {
+  console.error(JSON.stringify({ level: "error", type: "startup_fatal", error: (error as Error).message }));
+  process.exit(1);
+});

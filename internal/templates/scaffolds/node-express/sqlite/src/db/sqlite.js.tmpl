@@ -11,7 +11,7 @@ export async function connect() {
   }
 
   try {
-    // Ensure directory exists
+    // Ensure directory exists for SQLite file.
     const dbDir = dirname(config.sqlite.path);
     await mkdir(dbDir, { recursive: true });
 

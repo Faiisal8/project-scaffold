@@ -2,6 +2,7 @@ package generator
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"text/template"
 
+	"project-scaffold/internal/plugin"
 	"project-scaffold/internal/templates"
 )
 
@@ -52,11 +54,12 @@ func ParseDatabaseKey(key string) (Database, error) {
 	}
 }
 
-type Options struct {
-	ProjectName string
-	Stack       Stack
-	Database    Database
-	UseDocker   bool
+type Options struct {	ProjectName  string
+	Stack        Stack
+	Database     Database
+	UseDocker    bool
+	Plugins      []string
+	NodeVariant  string
 }
 
 type templateData struct {
@@ -79,8 +82,8 @@ func Generate(targetDir string, opts Options) error {
 	if err != nil {
 		return err
 	}
-
-	base := filepath.ToSlash(filepath.Join("scaffolds", stackKey, dbKey))
+	effectiveStack := effectiveStackKey(opts.Stack, stackKey, opts.NodeVariant)
+	base := filepath.ToSlash(filepath.Join("scaffolds", effectiveStack, dbKey))
 	if _, err := fs.Stat(templates.FS, base); err != nil {
 		return fmt.Errorf("template not found for stack=%q db=%q (expected %s): %w", opts.Stack, opts.Database, base, err)
 	}
@@ -96,7 +99,7 @@ func Generate(targetDir string, opts Options) error {
 		UseDocker:   opts.UseDocker,
 	}
 
-	return fs.WalkDir(templates.FS, base, func(path string, d fs.DirEntry, walkErr error) error {
+	err = fs.WalkDir(templates.FS, base, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -106,7 +109,7 @@ func Generate(targetDir string, opts Options) error {
 
 		rel := strings.TrimPrefix(path, base+"/")
 		if rel == path {
-			rel = strings.TrimPrefix(path, base) // defensive
+			rel = strings.TrimPrefix(path, base)
 			rel = strings.TrimPrefix(rel, "/")
 		}
 
@@ -146,6 +149,62 @@ func Generate(targetDir string, opts Options) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	meta := scaffoldMeta{
+		Stack:    effectiveStack,
+		Database: dbKey,
+		Plugins:  opts.Plugins,
+	}
+	if err := writeScaffoldMeta(targetDir, meta); err != nil {
+		return fmt.Errorf("write scaffold metadata: %w", err)
+	}
+
+	for _, name := range opts.Plugins {
+		p := plugin.Get(name)
+		if p == nil {
+			return fmt.Errorf("plugin %q not found", name)
+		}
+		compatible := false
+		for _, s := range p.CompatibleStacks() {
+			if s == effectiveStack {
+				compatible = true
+				break
+			}
+		}
+		if !compatible {
+			continue
+		}
+		ctx := &plugin.Context{
+			ProjectName: opts.ProjectName,
+			StackKey:    effectiveStack,
+			Database:    dbKey,
+			UseDocker:   opts.UseDocker,
+			TargetDir:   targetDir,
+			Plugins:     opts.Plugins,
+		}
+		if err := p.Apply(ctx); err != nil {
+			return fmt.Errorf("plugin %s: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+type scaffoldMeta struct {
+	Stack    string   `json:"stack"`
+	Database string   `json:"database"`
+	Plugins  []string `json:"plugins"`
+}
+
+func writeScaffoldMeta(targetDir string, meta scaffoldMeta) error {
+	b, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(targetDir, ".scaffold.json"), b, 0o644)
 }
 
 func mapDotfiles(p string) string {
@@ -172,6 +231,10 @@ func validate(opts Options) error {
 	return nil
 }
 
+func StackKey(s Stack) (string, error) {
+	return stackDir(s)
+}
+
 func stackDir(s Stack) (string, error) {
 	switch s {
 	case StackGoGin:
@@ -181,6 +244,20 @@ func stackDir(s Stack) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported stack: %q", s)
 	}
+}
+
+func effectiveStackKey(stack Stack, stackKey, nodeVariant string) string {
+	if stack != StackNodeExpress {
+		return stackKey
+	}
+	if strings.ToLower(strings.TrimSpace(nodeVariant)) == "ts" || nodeVariant == "typescript" {
+		return "node-express-ts"
+	}
+	return stackKey
+}
+
+func EffectiveStackKey(stack Stack, stackKey, nodeVariant string) string {
+	return effectiveStackKey(stack, stackKey, nodeVariant)
 }
 
 func dbDir(d Database) (string, error) {

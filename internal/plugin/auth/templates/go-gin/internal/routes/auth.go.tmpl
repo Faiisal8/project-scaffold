@@ -1,0 +1,15 @@
+package routes
+
+import (
+	"github.com/gin-gonic/gin"
+
+	"{{.ProjectName}}/internal/handlers"
+	"{{.ProjectName}}/internal/middleware"
+)
+
+// RegisterAuth mounts auth routes on the engine.
+func RegisterAuth(r *gin.Engine, h *handlers.AuthHandler) {
+	g := r.Group("/auth")
+	g.POST("/login", h.Login)
+	g.GET("/me", middleware.JWT(), h.Me)
+}

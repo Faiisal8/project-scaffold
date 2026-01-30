@@ -1,0 +1,46 @@
+import pkg from "pg";
+const { Pool } = pkg;
+import type { Pool as PoolType } from "pg";
+import { config } from "../config/config.js";
+
+let pool: PoolType | null = null;
+
+export function connect(): PoolType {
+  if (pool) {
+    return pool;
+  }
+
+  pool = new Pool({
+    host: config.db.host,
+    port: config.db.port,
+    user: config.db.user,
+    password: config.db.password,
+    database: config.db.database,
+    ssl: config.db.ssl,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+  });
+
+  pool.on("error", (err: Error) => {
+    console.error(JSON.stringify({ level: "error", type: "db_error", error: err.message }));
+  });
+
+  console.log("PostgreSQL pool created", { host: config.db.host, database: config.db.database });
+  return pool;
+}
+
+export async function disconnect(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+    console.log("PostgreSQL pool closed");
+  }
+}
+
+export function getPool(): PoolType {
+  if (!pool) {
+    throw new Error("Database pool not initialized. Call connect() first.");
+  }
+  return pool;
+}

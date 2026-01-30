@@ -1,0 +1,12 @@
+import { Router } from "express";
+import { checkHealth } from "../services/healthService.js";
+
+const router = Router();
+
+router.get("/health", async (req, res) => {
+  const health = await checkHealth();
+  const statusCode = health.db === "up" ? 200 : 503;
+  res.status(statusCode).json(health);
+});
+
+export default router;

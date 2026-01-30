@@ -6,24 +6,22 @@ import { requestLoggerMiddleware } from "./middleware/requestLogger.js";
 import { errorHandlerMiddleware } from "./middleware/errorHandler.js";
 import healthRouter from "./routes/health.js";
 import { setStartTime } from "./services/healthService.js";
+// scaffold:auth-import
 
 const app = express();
 const startedAt = Date.now();
 setStartTime(startedAt);
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestIdMiddleware);
 app.use(requestLoggerMiddleware);
 
-// Routes
 app.use("/", healthRouter);
+// scaffold:auth-routes
 
-// Error handling (must be last)
 app.use(errorHandlerMiddleware);
 
-// Graceful shutdown
 let server = null;
 
 async function start() {

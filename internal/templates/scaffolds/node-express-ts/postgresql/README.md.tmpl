@@ -1,0 +1,41 @@
+# {{.ProjectName}} (Node.js + Express + TypeScript + PostgreSQL)
+
+## Quickstart (local)
+
+```bash
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Health check:
+- `GET /health` → includes app status + DB reachability
+
+## Docker
+
+If generated with Docker enabled:
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8080/health`.
+
+## Project Structure
+
+```
+src/
+  config/
+  db/
+  middleware/
+  routes/
+  services/
+  server.ts
+```
+
+## Features
+
+- TypeScript with strict mode
+- Structured JSON logging with request ID
+- Graceful shutdown
+- PostgreSQL connection pool with health checks
